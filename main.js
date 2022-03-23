@@ -1,4 +1,5 @@
 import { webglUtils } from './webgl-utils.js'
+import { inputHandler } from './input-handler.js'
 
 function main () {
     const canvas = document.querySelector('#canvas');
@@ -13,22 +14,18 @@ function main () {
     Promise.all([vertShaderPromise, fragShaderPromise]).then(shaderStrings => {
         const shaderProgram = webglUtils.initShaderProgram(gl, shaderStrings[0], shaderStrings[1])
 
-        const programInfo = {
-            positionAttributeLocation: gl.getAttribLocation(shaderProgram, 'a_position'),
-            textureCoordAttributeLocation: gl.getAttribLocation(shaderProgram, 'a_textureCoord'),
-            timeUniformLocation: gl.getUniformLocation(shaderProgram, 'u_time'),
-            uSampler: gl.getUniformLocation(shaderProgram, 'u_sampler'),
-            modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
-            projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
-        };
+        const programInfo = findProgramLocations(gl, shaderProgram);
 
         const buffers = initalizePoints(gl);
         const starTex = webglUtils.loadTexture(gl, './star-tex.png');
 
         gl.useProgram(shaderProgram);
 
+        gl.clearColor(0, 0, 0, 1);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable( gl.BLEND );
+        gl.enable(gl.CULL_FACE);
+        gl.enable(gl.DEPTH_TEST);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.positionBuffer);
         gl.enableVertexAttribArray(programInfo.positionAttributeLocation);
@@ -49,60 +46,16 @@ function main () {
             resizeCanvas(gl)
         });
 
-
         startRenderLoop(gl, programInfo);
     })
 }
 
 
-let pressedKeys = {
-    W: false,
-    S: false,
-    D: false,
-    A: false
-}
-window.onkeydown = function(e) {
-    if(e.key === 'w') {
-        pressedKeys.W = true;
-    } else if(e.key === 's') {
-        pressedKeys.S = true;
-    } else if(e.key === 'd') {
-        pressedKeys.D = true;
-    } else if(e.key === 'a') {
-        pressedKeys.A = true;
-    }
-}
-window.onkeyup = function(e) {
-    if(e.key === 'w') {
-        pressedKeys.W = false;
-    } else if(e.key === 's') {
-        pressedKeys.S = false;
-    } else if(e.key === 'd') {
-        pressedKeys.D = false;
-    } else if(e.key === 'a') {
-        pressedKeys.A = false;
-    }
-}
-document.getElementById("mobile-forward").ontouchstart = function(e) {
-    e.preventDefault();
-    pressedKeys.W = true;
-}
-document.getElementById("mobile-forward").ontouchend = function() {
-    pressedKeys.W = false;
-}
-document.getElementById("mobile-backward").ontouchstart = function(e) {
-    e.preventDefault();
-    pressedKeys.S = true;
-}
-document.getElementById("mobile-backward").ontouchend = function() {
-    pressedKeys.S = false;
-}
-
 function startRenderLoop(gl, programInfo) {
     let startTime;
     let lastTime;
     let position = -5.0;
-    let rotation = 0;
+    let rotation = 0.0;
     function render(timestamp) {
         if(!startTime) {
             startTime = timestamp;
@@ -111,52 +64,45 @@ function startRenderLoop(gl, programInfo) {
         const particleTime = (timestamp - startTime) / 1000;
         const delta = timestamp - lastTime;
         lastTime = timestamp;
-        
-        gl.uniform1f(programInfo.timeUniformLocation, particleTime);
 
-        if(pressedKeys.W) {
+        if(inputHandler.W) {
             position += .04 * delta;
-        } else if(pressedKeys.S) {
+        } else if(inputHandler.S) {
             position -= .04 * delta;
         }
 
-        if(pressedKeys.D) {
+        if(inputHandler.D) {
             rotation += .0002 * delta;
-        } else if(pressedKeys.A) {
+        } else if(inputHandler.A) {
             rotation -= .0002 * delta;
         }
 
-        const fieldOfView = 45 * Math.PI / 180;   // in radians
-        const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-        const zNear = 0.1;
-        const zFar = 500.0;
+        calcProjectionView(gl, programInfo, position, rotation);
 
-        const projectionMatrix = mat4.create();
-        mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
-    
-        const modelViewMatrix = mat4.create();
-        mat4.rotate(modelViewMatrix, modelViewMatrix, rotation, [0, 1, 0]);
-        mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, position]);
+        gl.uniform1f(programInfo.timeUniformLocation, particleTime);
 
-        gl.uniformMatrix4fv(
-            programInfo.projectionMatrix,
-            false,
-            projectionMatrix);
-        gl.uniformMatrix4fv(
-            programInfo.modelViewMatrix,
-            false,
-            modelViewMatrix);
-
-
-
-        gl.clearColor(0, 0, 0, 1);
-        gl.enable(gl.CULL_FACE);
-        gl.enable(gl.DEPTH_TEST);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * 500000);
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
+}
+
+function calcProjectionView(gl, programInfo, position, rotation) {
+    const fieldOfView = 45 * Math.PI / 180;   // in radians
+    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+    const zNear = 0.1;
+    const zFar = 500.0;
+
+    const projectionMatrix = mat4.create();
+    mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+
+    const modelViewMatrix = mat4.create();
+    mat4.rotate(modelViewMatrix, modelViewMatrix, rotation, [0, 1, 0]);
+    mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, position]);
+
+    gl.uniformMatrix4fv(programInfo.projectionMatrix, false, projectionMatrix);
+    gl.uniformMatrix4fv(programInfo.modelViewMatrix, false, modelViewMatrix);
 }
 
 function initalizePoints(gl) {
@@ -226,6 +172,17 @@ function initalizePoints(gl) {
         positionBuffer: positionBuffer,
         textureCoordBuffer: textureCoordBuffer
     }
+}
+
+function findProgramLocations(gl, shaderProgram) {
+    return {
+        positionAttributeLocation: gl.getAttribLocation(shaderProgram, 'a_position'),
+        textureCoordAttributeLocation: gl.getAttribLocation(shaderProgram, 'a_textureCoord'),
+        timeUniformLocation: gl.getUniformLocation(shaderProgram, 'u_time'),
+        uSampler: gl.getUniformLocation(shaderProgram, 'u_sampler'),
+        modelViewMatrix: gl.getUniformLocation(shaderProgram, 'u_modelViewMatrix'),
+        projectionMatrix: gl.getUniformLocation(shaderProgram, 'u_projectionMatrix'),
+    };
 }
 
 function resizeCanvas(gl) {
