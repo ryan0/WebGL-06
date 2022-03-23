@@ -84,24 +84,31 @@ document.getElementById("mobile-backward").ontouchend = function() {
 
 function startRenderLoop(gl, programInfo) {
     let startTime;
+    let lastTime;
     let position = -5.0;
     let rotation = 0;
     function render(timestamp) {
-        if(!startTime) startTime = timestamp;
-        const particleTime = (timestamp - startTime) / 1000.0;
+        if(!startTime) {
+            startTime = timestamp;
+            lastTime = timestamp;
+        }
+        const particleTime = (timestamp - startTime) / 1000;
+        const delta = timestamp - lastTime;
+        lastTime = timestamp;
+        console.log(delta);
         
         gl.uniform1f(programInfo.timeUniformLocation, particleTime);
 
         if(pressedKeys.W) {
-            position += .1;
+            position += .04 * delta;
         } else if(pressedKeys.S) {
-            position -= .1;
+            position -= .04 * delta;
         }
 
         if(pressedKeys.D) {
-            rotation += .01;
+            rotation += .0002 * delta;
         } else if(pressedKeys.A) {
-            rotation -= .01;
+            rotation -= .0002 * delta;
         }
 
         const fieldOfView = 45 * Math.PI / 180;   // in radians
@@ -131,7 +138,7 @@ function startRenderLoop(gl, programInfo) {
         gl.enable(gl.CULL_FACE);
         gl.enable(gl.DEPTH_TEST);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * 10000);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * 100000);
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
@@ -140,12 +147,12 @@ function startRenderLoop(gl, programInfo) {
 function initalizePoints(gl) {
     const positions = [];
 
-    for(let i = 0; i < 10000; i++) {
-        const colorOffset = Math.random() * 1000;
-        const x = (Math.random() * 100) - 50;
-        const y = (Math.random() * 100) - 50;
-        const z = -1 * Math.random() * 100;
-        const size = Math.random() / 2;
+    for(let i = 0; i < 100000; i++) {
+        const colorOffset = Math.random() * 100;
+        const x = (Math.random() * 200) - 100;
+        const y = (Math.random() * 200) - 100;
+        const z = -1 * Math.random() * 1000;
+        const size = Math.random() / 4.0;
 
         positions.push(0 + x); positions.push(0 + y); positions.push(z); positions.push(colorOffset);
         positions.push(size + x); positions.push(0 + y); positions.push(z); positions.push(colorOffset);
