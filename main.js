@@ -3,7 +3,7 @@ import { inputHandler } from './input-handler.js'
 
 function main () {
     const canvas = document.querySelector('#canvas');
-    const gl = canvas.getContext('webgl');
+    const gl = canvas.getContext('webgl', { alpha: false });
     if(!gl) {
         alert('Unable to initialize WebGL'); 
         return; 
@@ -54,7 +54,8 @@ function main () {
 function startRenderLoop(gl, programInfo) {
     let startTime;
     let lastTime;
-    let position = -5.0;
+    let vel = .04;
+    let position = -500.0;
     let rotation = 0.0;
     function render(timestamp) {
         if(!startTime) {
@@ -64,11 +65,12 @@ function startRenderLoop(gl, programInfo) {
         const particleTime = (timestamp - startTime) / 1000;
         const delta = timestamp - lastTime;
         lastTime = timestamp;
+        position += vel * delta;
 
-        if(inputHandler.W) {
-            position += .04 * delta;
-        } else if(inputHandler.S) {
-            position -= .04 * delta;
+        if(inputHandler.W && vel < 0.1) {
+            vel += .0001 * delta;
+        } else if(inputHandler.S && vel > -0.1) {
+            vel -= .0001 * delta;
         }
 
         if(inputHandler.D) {
@@ -111,22 +113,25 @@ function initalizePoints(gl) {
 
     const clusterPositions = [];
 
-    const spreadWidth = 200;
-    const spreadHeight = 200;
-    const spreadDepth = 1000;
-    const numberClusters = 200;
+    const spreadWidth = 800;
+    const spreadHeight = 800;
+    const spreadDepth = 4000;
+    const numberClusters = 100;
 
     for(let i = 0; i < numberClusters; i++) {
         const x = (Math.random() * spreadWidth) - spreadWidth / 2.0;
         const y = (Math.random() * spreadHeight) - spreadHeight / 2.0;
         const z = -1 * Math.random() * spreadDepth;
+        let cluster = vec3.fromValues(x, y, z);
+        vec3.scale(cluster, cluster, .5);
 
-        clusterPositions.push(vec3.fromValues(x, y, z));
+        clusterPositions.push(cluster);
     }
 
     for(let i = 0; i < 500000; i++) {
         const colorOffset = Math.random() * 100;
-        const size = Math.random() * Math.random() * Math.random() * Math.random();
+        let size = Math.random() * Math.random() * Math.random() * Math.random() * 1.5;
+        size += .1;
         const x = (Math.random() * spreadWidth) - spreadWidth / 2.0;
         const y = (Math.random() * spreadHeight) - spreadHeight / 2.0;
         const z = -1 * Math.random() * spreadDepth;
