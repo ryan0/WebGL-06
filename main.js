@@ -83,13 +83,15 @@ window.onkeyup = function(e) {
         pressedKeys.A = false;
     }
 }
-document.getElementById("mobile-forward").ontouchstart = function() {
+document.getElementById("mobile-forward").ontouchstart = function(e) {
+    e.preventDefault();
     pressedKeys.W = true;
 }
 document.getElementById("mobile-forward").ontouchend = function() {
     pressedKeys.W = false;
 }
-document.getElementById("mobile-backward").ontouchstart = function() {
+document.getElementById("mobile-backward").ontouchstart = function(e) {
+    e.preventDefault();
     pressedKeys.S = true;
 }
 document.getElementById("mobile-backward").ontouchend = function() {
